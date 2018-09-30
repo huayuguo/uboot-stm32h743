@@ -1,0 +1,22 @@
+这是本人移植的UBOOT
+for      STM32H743ii    正点原子stm32H7开发板
+
+from  	官方UBOOT 201809-rc2  修改
+
+CROSS_COMPILE = arm-none-eabi-    MAKEFILE 请确保Linux 系统中安装了 arm-none-eabi- 编译器
+
+make mrproper
+
+make stm32h743-eval_defconfig
+
+make     
+
+uboot.bin   烧录 0x8000000
+
+目前发现的问题：
+	1 initr_serial 
+	2 initr_mmc
+	其他问题待。。。。。。
+
+目前状态：能正常执行 uboot 命令。
+
