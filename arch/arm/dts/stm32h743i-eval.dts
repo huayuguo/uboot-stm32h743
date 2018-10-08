@@ -52,7 +52,6 @@
 	chosen {
 		bootargs = "root=/dev/ram";
 		stdout-path = "serial0:115200n8";
-		tick-timer = &systick;
 	};
 
 	memory {
@@ -61,6 +60,8 @@
 
 	aliases {
 		serial0 = &usart1;
+		timer = &timer5;
+		mmc = &sdmmc1;
 		gpio0 = &gpioa;
 		gpio1 = &gpiob;
 		gpio2 = &gpioc;
@@ -101,9 +102,9 @@
 };
 &sdmmc1 {
 	status = "okay";
-	pinctrl-0 = <&sdmmc1_pins>,
-		    <&pinctrl_sdmmc1_level_shifter>;
+	pinctrl-0 = <&sdmmc1_pins>;
 	pinctrl-names = "default";
 	bus-width = <4>;
 	st,dirpol;
+	max-frequency = <25000000>;
 };
