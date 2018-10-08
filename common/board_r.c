@@ -711,7 +711,7 @@ static init_fnc_t init_sequence_r[] = {
 	efi_memory_init,
 #endif
 	stdio_init_tables,
-	//initr_serial,
+	initr_serial,
 	initr_announce,
 	INIT_FUNC_WATCHDOG_RESET
 #ifdef CONFIG_NEEDS_MANUAL_RELOC
@@ -760,7 +760,7 @@ static init_fnc_t init_sequence_r[] = {
 	initr_onenand,
 #endif
 #ifdef CONFIG_MMC
-	//initr_mmc,
+	initr_mmc,
 #endif
 	initr_env,
 #ifdef CONFIG_SYS_BOOTPARAMS_LEN
@@ -824,7 +824,7 @@ static init_fnc_t init_sequence_r[] = {
 #endif
 #ifdef CONFIG_CMD_NET
 	INIT_FUNC_WATCHDOG_RESET
-	//initr_net,
+	initr_net,
 #endif
 #ifdef CONFIG_POST
 	initr_post,
