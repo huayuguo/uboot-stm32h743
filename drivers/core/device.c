@@ -310,7 +310,7 @@ int device_probe(struct udevice *dev)
 	int size = 0;
 	int ret;
 	int seq;
-
+	debug("%s dev = %p \n", __func__,dev);
 	if (!dev)
 		return -EINVAL;
 
@@ -319,7 +319,7 @@ int device_probe(struct udevice *dev)
 
 	drv = dev->driver;
 	assert(drv);
-
+	debug("%s 1 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 	/* Allocate private data if requested and not reentered */
 	if (drv->priv_auto_alloc_size && !dev->priv) {
 		dev->priv = alloc_priv(drv->priv_auto_alloc_size, drv->flags);
@@ -328,6 +328,7 @@ int device_probe(struct udevice *dev)
 			goto fail;
 		}
 	}
+	debug("%s 2 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 	/* Allocate private data if requested and not reentered */
 	size = dev->uclass->uc_drv->per_device_auto_alloc_size;
 	if (size && !dev->uclass_priv) {
@@ -339,6 +340,7 @@ int device_probe(struct udevice *dev)
 	}
 
 	/* Ensure all parents are probed */
+	debug("%s 3 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 	if (dev->parent) {
 		size = dev->parent->driver->per_child_auto_alloc_size;
 		if (!size) {
@@ -352,7 +354,7 @@ int device_probe(struct udevice *dev)
 				goto fail;
 			}
 		}
-
+	debug("%s 4 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 		ret = device_probe(dev->parent);
 		if (ret)
 			goto fail;
@@ -363,6 +365,8 @@ int device_probe(struct udevice *dev)
 		 * (e.g. PCI bridge devices). Test the flags again
 		 * so that we don't mess up the device.
 		 */
+	debug("%s 5 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
+
 		if (dev->flags & DM_FLAG_ACTIVATED)
 			return 0;
 	}
@@ -370,12 +374,13 @@ int device_probe(struct udevice *dev)
 	seq = uclass_resolve_seq(dev);
 	if (seq < 0) {
 		ret = seq;
+		debug("%s got to fail 6 dev = %p,dev->flags = %d seq = %d \n", __func__,dev,dev->flags,seq);
 		goto fail;
 	}
 	dev->seq = seq;
 
 	dev->flags |= DM_FLAG_ACTIVATED;
-
+	debug("%s 6 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 	/*
 	 * Process pinctrl for everything except the root device, and
 	 * continue regardless of the result of pinctrl. Don't process pinctrl
@@ -391,21 +396,27 @@ int device_probe(struct udevice *dev)
 	}
 
 	ret = uclass_pre_probe_device(dev);
-	if (ret)
+	if (ret){
+		debug("%s uclass_pre_probe_device got to fail 6 dev = %p,dev->flags = %d ret = %d \n", __func__,dev,dev->flags,ret);
 		goto fail;
+		}
 
 	if (dev->parent && dev->parent->driver->child_pre_probe) {
 		ret = dev->parent->driver->child_pre_probe(dev);
-		if (ret)
+		if (ret){
+		debug("%s child_pre_probe got to fail 6 dev = %p,dev->flags = %d ret = %d \n", __func__,dev,dev->flags,ret);
 			goto fail;
+			}
 	}
 
 	if (drv->ofdata_to_platdata && dev_has_of_node(dev)) {
 		ret = drv->ofdata_to_platdata(dev);
-		if (ret)
+		if (ret){
+			debug("%s ofdata_to_platdata got to fail 6 dev = %p,dev->flags = %d ret = %d \n", __func__,dev,dev->flags,ret);
 			goto fail;
+			}
 	}
-
+	debug("%s 8 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 	/* Process 'assigned-{clocks/clock-parents/clock-rates}' properties */
 	ret = clk_set_defaults(dev);
 	if (ret)
@@ -425,7 +436,7 @@ int device_probe(struct udevice *dev)
 
 	if (dev->parent && device_get_uclass_id(dev) == UCLASS_PINCTRL)
 		pinctrl_select_state(dev, "default");
-
+	debug("%s 9 dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 	return 0;
 fail_uclass:
 	if (device_remove(dev, DM_REMOVE_NORMAL)) {
@@ -437,6 +448,7 @@ fail:
 
 	dev->seq = -1;
 	device_free(dev);
+	debug("%s fail dev = %p,dev->flags = %d \n", __func__,dev,dev->flags);
 
 	return ret;
 }

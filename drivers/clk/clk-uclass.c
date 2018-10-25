@@ -74,18 +74,18 @@ static int clk_get_by_indexed_prop(struct udevice *dev, const char *prop_name,
 		      __func__, ret);
 		return ret;
 	}
-
 	ret = uclass_get_device_by_ofnode(UCLASS_CLK, args.node, &dev_clk);
+	debug("uclass_get_device_by_ofnode ret %d\n",ret);
 	if (ret) {
 		debug("%s: uclass_get_device_by_of_offset failed: err=%d\n",
 		      __func__, ret);
 		return ret;
 	}
-
+	debug("%s(dev=%p, index=%d, clk=%p) .... ret %d\n", __func__, dev, index, clk,ret);
 	clk->dev = dev_clk;
 
 	ops = clk_dev_ops(dev_clk);
-
+	debug("%s(dev_clk=%p,ops=%p) .... ret \n", __func__, dev_clk, ops);
 	if (ops->of_xlate)
 		ret = ops->of_xlate(clk, &args);
 	else
@@ -145,6 +145,7 @@ static int clk_set_default_parents(struct udevice *dev)
 
 	num_parents = dev_count_phandle_with_args(dev, "assigned-clock-parents",
 						  "#clock-cells");
+	debug("%s: clk_set_default_parents for %p num_parents = %d \n",__func__, dev,num_parents);
 	if (num_parents < 0) {
 		debug("%s: could not read assigned-clock-parents for %p\n",
 		      __func__, dev);
@@ -242,21 +243,21 @@ fail:
 int clk_set_defaults(struct udevice *dev)
 {
 	int ret;
-
+	debug("%s gd->flags = %lx GD_FLG_RELOC = %lx\n", __func__, gd->flags,GD_FLG_RELOC);
 	/* If this is running pre-reloc state, don't take any action. */
 	if (!(gd->flags & GD_FLG_RELOC))
 		return 0;
-
+		
 	debug("%s(%s)\n", __func__, dev_read_name(dev));
 
 	ret = clk_set_default_parents(dev);
 	if (ret)
 		return ret;
-
+	debug("%s clk_set_default_parents ret= (%d)\n", __func__, ret);
 	ret = clk_set_default_rates(dev);
 	if (ret < 0)
 		return ret;
-
+	debug("%s clk_set_default_rates ret= (%d)\n", __func__, ret);
 	return 0;
 }
 # endif /* OF_PLATDATA */

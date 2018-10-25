@@ -56,7 +56,7 @@ ulong timer_get_boot_us(void)
 extern unsigned long __weak timer_read_counter(void);
 #endif
 
-#ifdef CONFIG_TIMER
+/*#ifdef CONFIG_TIMER
 ulong notrace get_tbclk(void)
 {
 	if (!gd->timer) {
@@ -111,7 +111,7 @@ uint64_t __weak notrace get_ticks(void)
 	return ((uint64_t)gd->timebase_h << 32) | gd->timebase_l;
 }
 
-#endif /* CONFIG_TIMER */
+//#endif /* CONFIG_TIMER */
 
 /* Returns time in milliseconds */
 static uint64_t notrace tick_to_time(uint64_t tick)

@@ -256,7 +256,7 @@ int uclass_find_device_by_seq(enum uclass_id id, int seq_or_req_seq,
 	int ret;
 
 	*devp = NULL;
-	debug("%s: %d %d\n", __func__, find_req_seq, seq_or_req_seq);
+	debug("%s: %d %d %d\n", __func__, find_req_seq,id, seq_or_req_seq);
 	if (seq_or_req_seq == -1)
 		return -ENODEV;
 	ret = uclass_get(id, &uc);
@@ -283,7 +283,7 @@ int uclass_find_device_by_of_offset(enum uclass_id id, int node,
 	struct uclass *uc;
 	struct udevice *dev;
 	int ret;
-
+	debug("%s uclass_id = %d node = %d \n", __func__, id, node);
 	*devp = NULL;
 	if (node < 0)
 		return -ENODEV;
@@ -307,7 +307,6 @@ int uclass_find_device_by_ofnode(enum uclass_id id, ofnode node,
 	struct uclass *uc;
 	struct udevice *dev;
 	int ret;
-
 	log(LOGC_DM, LOGL_DEBUG, "Looking for %s\n", ofnode_get_name(node));
 	*devp = NULL;
 	if (!ofnode_valid(node))
@@ -390,14 +389,15 @@ int uclass_get_device_tail(struct udevice *dev, int ret, struct udevice **devp)
 {
 	if (ret)
 		return ret;
-
+	debug("1 %s ret= %d dev = %p devp = %p:\n", __func__, ret,dev,devp);
 	assert(dev);
 	ret = device_probe(dev);
+	debug("3 %s ret= %d dev = %p devp = %p:\n", __func__, ret,dev,devp);
 	if (ret)
 		return ret;
 
 	*devp = dev;
-
+	debug("2 %s ret= %d dev = %p devp = %p:\n", __func__, ret,dev,devp);
 	return 0;
 }
 
@@ -455,13 +455,14 @@ int uclass_get_device_by_ofnode(enum uclass_id id, ofnode node,
 {
 	struct udevice *dev;
 	int ret;
+	debug("%s uclass_id= %d node = %d \n", __func__, id,node);
 
 	log(LOGC_DM, LOGL_DEBUG, "Looking for %s\n", ofnode_get_name(node));
 	*devp = NULL;
 	ret = uclass_find_device_by_ofnode(id, node, &dev);
 	log(LOGC_DM, LOGL_DEBUG, "   - result for %s: %s (ret=%d)\n",
 	    ofnode_get_name(node), dev ? dev->name : "(none)", ret);
-
+	debug("%s uclass_id= %d node = %d uclass_find_device_by_ofnode ret =%d \n", __func__, id,node,ret);
 	return uclass_get_device_tail(dev, ret, devp);
 }
 

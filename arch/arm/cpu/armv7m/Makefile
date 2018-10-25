@@ -6,4 +6,5 @@
 extra-y := start.o
 obj-y += cpu.o cache.o
 obj-$(CONFIG_SYS_ARM_MPU) += mpu.o
-obj-$(CONFIG_SYS_ARCH_TIMER) += systick-timer.o
+obj-y += systick-timer.o
+# obj-$(CONFIG_SYS_ARCH_TIMER) += systick-timer.o

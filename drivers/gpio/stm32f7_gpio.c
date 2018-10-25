@@ -98,6 +98,8 @@ static int gpio_stm32_probe(struct udevice *dev)
 	struct clk clk;
 	int ret;
 	ret = clk_get_by_index(dev, 0, &clk);
+	debug("%s, addr = 0x%p, bank_name = %s clk_get_by_index ret = %d\n", __func__, (u32 *)priv->regs,
+	      uc_priv->bank_name,ret);
 	if (ret < 0)
 		return ret;
 

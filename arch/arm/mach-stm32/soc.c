@@ -27,7 +27,7 @@ int arch_cpu_init(void)
 #endif
 
 #if defined(CONFIG_STM32H7)
-		{ 0xD0000000, REGION_0, XN_DIS, PRIV_RW_USR_RW,
+		{ 0x60000000, REGION_0, XN_DIS, PRIV_RW_USR_RW,
 		O_I_WB_RD_WR_ALLOC, REGION_32MB },
 #endif
 	};

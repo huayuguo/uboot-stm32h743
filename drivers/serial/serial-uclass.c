@@ -31,6 +31,7 @@ static int serial_check_stdout(const void *blob, struct udevice **devp)
 	int node;
 
 	/* Check for a chosen console */
+	debug("1 blob = %p dev = %p node = %u\n",blob,devp,node);
 	node = fdtdec_get_chosen_node(blob, "stdout-path");
 	if (node < 0) {
 		const char *str, *p, *name;
@@ -53,9 +54,12 @@ static int serial_check_stdout(const void *blob, struct udevice **devp)
 	}
 	if (node < 0)
 		node = fdt_path_offset(blob, "console");
-	if (!uclass_get_device_by_of_offset(UCLASS_SERIAL, node, devp))
-		return 0;
-
+	debug("5 blob = %p dev = %p node = %u\n",blob,devp,node);
+	if (!uclass_get_device_by_of_offset(UCLASS_SERIAL, node, devp)){
+		debug("6 blob = %p dev = %p node = %u\n",blob,devp,node);
+		return 0;		
+	}
+	debug("7 blob = %p dev = %p node = %u\n",blob,devp,node);
 	/*
 	 * If the console is not marked to be bound before relocation, bind it
 	 * anyway.
@@ -65,7 +69,7 @@ static int serial_check_stdout(const void *blob, struct udevice **devp)
 		if (!device_probe(*devp))
 			return 0;
 	}
-
+	debug("7 err  blob = %p dev = %p node = %u\n",blob,devp,node);
 	return -ENODEV;
 }
 
@@ -73,28 +77,35 @@ static void serial_find_console_or_panic(void)
 {
 	const void *blob = gd->fdt_blob;
 	struct udevice *dev;
+	printf(" serial driver founding.......\n");
 #ifdef CONFIG_SERIAL_SEARCH_ALL
 	int ret;
 #endif
 
 	if (CONFIG_IS_ENABLED(OF_PLATDATA)) {
 		uclass_first_device(UCLASS_SERIAL, &dev);
+		debug(" serial CONFIG_IS_ENABLED.......\n");
 		if (dev) {
 			gd->cur_serial_dev = dev;
 			return;
 		}
 	} else if (CONFIG_IS_ENABLED(OF_CONTROL) && blob) {
+		debug(" serial else CONFIG_IS_ENABLED.......\n");
 		/* Live tree has support for stdout */
 		if (of_live_active()) {
 			struct device_node *np = of_get_stdout();
-
+			debug(" serial else CONFIG_IS_ENABLED..of_live_active.....\n");
 			if (np && !uclass_get_device_by_ofnode(UCLASS_SERIAL,
 					np_to_ofnode(np), &dev)) {
 				gd->cur_serial_dev = dev;
+				debug(" uclass_get_device_by_ofnode.....gd->cur_serial_dev = dev\n");
 				return;
 			}
 		} else {
+			debug("1   gd->cur_serial_dev = %p  blob = %p dev = %p gd->flags = %lx \n",&dev,blob,dev,gd->flags);
+			debug(" serial else CONFIG_IS_ENABLED..else of_live_active.....\n");
 			if (!serial_check_stdout(blob, &dev)) {
+			debug("2    gd->cur_serial_dev = %p  blob = %p  dev = %p gd->flags = %lx \n",&dev,blob,dev,gd->flags);
 				gd->cur_serial_dev = dev;
 				return;
 			}
@@ -109,6 +120,8 @@ static void serial_find_console_or_panic(void)
 		 * extremis just the first working serial device we can find.
 		 * But we insist on having a console (even if it is silent).
 		 */
+		printf(" serial SPL_BUILD || !CONFIG_IS_ENABLED......\n");
+		
 #ifdef CONFIG_CONS_INDEX
 #define INDEX (CONFIG_CONS_INDEX - 1)
 #else

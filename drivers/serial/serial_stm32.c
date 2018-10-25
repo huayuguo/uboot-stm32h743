@@ -18,8 +18,11 @@ static void _stm32_serial_setbrg(fdt_addr_t base,
 				 u32 clock_rate,
 				 int baudrate)
 {
+
 	bool stm32f4 = uart_info->stm32f4;
 	u32 int_div, mantissa, fraction, oversampling;
+
+
 
 	int_div = DIV_ROUND_CLOSEST(clock_rate, baudrate);
 
@@ -54,6 +57,7 @@ static int stm32_serial_setparity(struct udevice *dev, enum serial_par parity)
 	u8 uart_enable_bit = plat->uart_info->uart_enable_bit;
 	u32 cr1 = plat->base + CR1_OFFSET(stm32f4);
 	u32 config = 0;
+
 
 	if (stm32f4)
 		return -EINVAL; /* not supported in driver*/
@@ -93,6 +97,7 @@ static int stm32_serial_getc(struct udevice *dev)
 	fdt_addr_t base = plat->base;
 	u32 isr = readl(base + ISR_OFFSET(stm32f4));
 
+
 	if ((isr & USART_ISR_RXNE) == 0)
 		return -EAGAIN;
 
@@ -114,6 +119,7 @@ static int _stm32_serial_putc(fdt_addr_t base,
 {
 	bool stm32f4 = uart_info->stm32f4;
 
+
 	if ((readl(base + ISR_OFFSET(stm32f4)) & USART_ISR_TXE) == 0)
 		return -EAGAIN;
 
@@ -126,6 +132,7 @@ static int stm32_serial_putc(struct udevice *dev, const char c)
 {
 	struct stm32x7_serial_platdata *plat = dev_get_platdata(dev);
 
+
 	return _stm32_serial_putc(plat->base, plat->uart_info, c);
 }
 
@@ -134,6 +141,7 @@ static int stm32_serial_pending(struct udevice *dev, bool input)
 	struct stm32x7_serial_platdata *plat = dev_get_platdata(dev);
 	bool stm32f4 = plat->uart_info->stm32f4;
 	fdt_addr_t base = plat->base;
+
 
 	if (input)
 		return readl(base + ISR_OFFSET(stm32f4)) &
@@ -148,6 +156,7 @@ static void _stm32_serial_init(fdt_addr_t base,
 {
 	bool stm32f4 = uart_info->stm32f4;
 	u8 uart_enable_bit = uart_info->uart_enable_bit;
+
 
 	/* Disable uart-> enable fifo -> enable uart */
 	clrbits_le32(base + CR1_OFFSET(stm32f4), USART_CR1_RE | USART_CR1_TE |
@@ -164,6 +173,9 @@ static int stm32_serial_probe(struct udevice *dev)
 	struct clk clk;
 	int ret;
 
+	if (!(gd->flags & GD_FLG_RELOC))
+	debug("%s \n", __func__);
+	
 	plat->uart_info = (struct stm32_uart_info *)dev_get_driver_data(dev);
 
 	ret = clk_get_by_index(dev, 0, &clk);
@@ -187,9 +199,7 @@ static int stm32_serial_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id stm32_serial_id[] = {
-	{ .compatible = "st,stm32-uart", .data = (ulong)&stm32f4_info},
-	{ .compatible = "st,stm32f7-uart", .data = (ulong)&stm32f7_info},
+static const struct udevice_id stm32h7_serial_id[] = {
 	{ .compatible = "st,stm32h7-uart", .data = (ulong)&stm32h7_info},
 	{}
 };
@@ -198,6 +208,7 @@ static int stm32_serial_ofdata_to_platdata(struct udevice *dev)
 {
 	struct stm32x7_serial_platdata *plat = dev_get_platdata(dev);
 
+	debug("%s \n", __func__);
 	plat->base = devfdt_get_addr(dev);
 	if (plat->base == FDT_ADDR_T_NONE)
 		return -EINVAL;
@@ -216,7 +227,7 @@ static const struct dm_serial_ops stm32_serial_ops = {
 U_BOOT_DRIVER(serial_stm32) = {
 	.name = "serial_stm32",
 	.id = UCLASS_SERIAL,
-	.of_match = of_match_ptr(stm32_serial_id),
+	.of_match = stm32h7_serial_id,
 	.ofdata_to_platdata = of_match_ptr(stm32_serial_ofdata_to_platdata),
 	.platdata_auto_alloc_size = sizeof(struct stm32x7_serial_platdata),
 	.ops = &stm32_serial_ops,

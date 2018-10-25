@@ -11,7 +11,7 @@
 #include <dm/device-internal.h>
 #include <dm/lists.h>
 
-struct stm32_rcc_clk stm32_rcc_clk_f42x = {
+/*struct stm32_rcc_clk stm32_rcc_clk_f42x = {
 	.drv_name = "stm32fx_rcc_clock",
 	.soc = STM32F42X,
 };
@@ -19,21 +19,21 @@ struct stm32_rcc_clk stm32_rcc_clk_f42x = {
 struct stm32_rcc_clk stm32_rcc_clk_f469 = {
 	.drv_name = "stm32fx_rcc_clock",
 	.soc = STM32F469,
-};
+};*/
 
-struct stm32_rcc_clk stm32_rcc_clk_f7 = {
+/*struct stm32_rcc_clk stm32_rcc_clk_f7 = {
 	.drv_name = "stm32fx_rcc_clock",
 	.soc = STM32F7,
 };
-
+*/
 struct stm32_rcc_clk stm32_rcc_clk_h7 = {
 	.drv_name = "stm32h7_rcc_clock",
 };
 
-struct stm32_rcc_clk stm32_rcc_clk_mp1 = {
+/*struct stm32_rcc_clk stm32_rcc_clk_mp1 = {
 	.drv_name = "stm32mp1_clk",
 	.soc = STM32MP1,
-};
+};*/
 
 static int stm32_rcc_bind(struct udevice *dev)
 {
@@ -72,11 +72,11 @@ static const struct misc_ops stm32_rcc_ops = {
 };
 
 static const struct udevice_id stm32_rcc_ids[] = {
-	{.compatible = "st,stm32f42xx-rcc", .data = (ulong)&stm32_rcc_clk_f42x },
-	{.compatible = "st,stm32f469-rcc", .data = (ulong)&stm32_rcc_clk_f469 },
-	{.compatible = "st,stm32f746-rcc", .data = (ulong)&stm32_rcc_clk_f7 },
+	//{.compatible = "st,stm32f42xx-rcc", .data = (ulong)&stm32_rcc_clk_f42x },
+	//{.compatible = "st,stm32f469-rcc", .data = (ulong)&stm32_rcc_clk_f469 },
+	//{.compatible = "st,stm32f746-rcc", .data = (ulong)&stm32_rcc_clk_f7 },
 	{.compatible = "st,stm32h743-rcc", .data = (ulong)&stm32_rcc_clk_h7 },
-	{.compatible = "st,stm32mp1-rcc", .data = (ulong)&stm32_rcc_clk_mp1 },
+	//{.compatible = "st,stm32mp1-rcc", .data = (ulong)&stm32_rcc_clk_mp1 },
 	{ }
 };
 
