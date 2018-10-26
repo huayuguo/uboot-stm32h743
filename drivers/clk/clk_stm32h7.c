@@ -350,7 +350,10 @@ int configure_clocks(struct udevice *dev)
 	uint32_t pllckselr = 0;
 	uint32_t pll1divr = 0;
 	uint32_t pllcfgr = 0;
-
+	
+	debug("%s configure_clocks ing........\n", __func__);
+	if (gd->flags & GD_FLG_SERIAL_READY)
+	return 0;
 	/* Switch on HSI */
 	setbits_le32(&regs->cr, RCC_CR_HSION);
 	while (!(readl(&regs->cr) & RCC_CR_HSIRDY))
@@ -796,11 +799,12 @@ static int stm32_clk_probe(struct udevice *dev)
 	struct udevice *syscon;
 	fdt_addr_t addr;
 	int err;
-
+	debug("%s .................\n", __func__);
 	addr = dev_read_addr(dev);
 	if (addr == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
+	debug("%s addr = %dd\n", __func__,addr);
 	priv->rcc_base = (struct stm32_rcc_regs *)addr;
 
 	/* get corresponding syscon phandle */
@@ -808,16 +812,16 @@ static int stm32_clk_probe(struct udevice *dev)
 					   "st,syscfg", &syscon);
 
 	if (err) {
-		pr_err("unable to find syscon device\n");
+		debug("unable to find syscon device\n");
 		return err;
 	}
 
 	priv->pwr_regmap = syscon_get_regmap(syscon);
 	if (!priv->pwr_regmap) {
-		pr_err("unable to find regmap\n");
+		debug("unable to find regmap\n");
 		return -ENODEV;
 	}
-
+	debug("%s configure_clocks ....\n", __func__,addr);
 	configure_clocks(dev);
 
 	return 0;

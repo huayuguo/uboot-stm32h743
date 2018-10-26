@@ -199,7 +199,7 @@ static int stm32_serial_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id stm32h7_serial_id[] = {
+static const struct udevice_id stm32_serial_id[] = {
 	{ .compatible = "st,stm32h7-uart", .data = (ulong)&stm32h7_info},
 	{}
 };
@@ -227,7 +227,7 @@ static const struct dm_serial_ops stm32_serial_ops = {
 U_BOOT_DRIVER(serial_stm32) = {
 	.name = "serial_stm32",
 	.id = UCLASS_SERIAL,
-	.of_match = stm32h7_serial_id,
+	.of_match = of_match_ptr(stm32_serial_id),
 	.ofdata_to_platdata = of_match_ptr(stm32_serial_ofdata_to_platdata),
 	.platdata_auto_alloc_size = sizeof(struct stm32x7_serial_platdata),
 	.ops = &stm32_serial_ops,

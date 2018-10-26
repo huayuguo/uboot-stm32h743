@@ -61,7 +61,7 @@
 
 	aliases {
 		serial0 = &usart1;
-		mmc = &sdmmc1;
+		mmc0 = &sdmmc1;
 		tick-timer = &systick;
 		gpio0 = &gpioa;
 		gpio1 = &gpiob;
