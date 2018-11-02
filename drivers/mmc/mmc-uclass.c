@@ -355,6 +355,7 @@ static int mmc_blk_probe(struct udevice *dev)
 	struct mmc *mmc = upriv->mmc;
 	int ret;
 
+	debug("%s: ........\n", __func__);
 	ret = mmc_init(mmc);
 	if (ret) {
 		debug("%s: mmc_init() failed (err=%d)\n", __func__, ret);

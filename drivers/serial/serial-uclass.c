@@ -77,7 +77,7 @@ static void serial_find_console_or_panic(void)
 {
 	const void *blob = gd->fdt_blob;
 	struct udevice *dev;
-	printf(" serial driver founding.......\n");
+	
 #ifdef CONFIG_SERIAL_SEARCH_ALL
 	int ret;
 #endif

@@ -70,6 +70,7 @@
 				 <&rcc 0 STM32F7_AHB1_CLOCK(ETHMACRX)>;
 			interrupts = <61>, <62>;
 			interrupt-names = "macirq", "eth_wake_irq";
+			st,syscon = <&syscfg 0x4>;
 			snps,pbl = <8>;
 			snps,mixed-burst;
 			dma-ranges;

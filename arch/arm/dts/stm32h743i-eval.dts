@@ -62,6 +62,7 @@
 	aliases {
 		serial0 = &usart1;
 		mmc0 = &sdmmc1;
+		eth0 = &mac;
 		tick-timer = &systick;
 		gpio0 = &gpioa;
 		gpio1 = &gpiob;
@@ -81,6 +82,25 @@
 	pinctrl-0 = <&usart1_pins>;
 	pinctrl-names = "default";
 	status = "okay"; 
+};
+
+&mac {
+	status = "okay";
+	local-mac-address = [aa 0a 0b 0c 0d dd];
+	pinctrl-0 = <&ethernet_mii>;
+	phy-mode = "rmii";
+	phy-handle = <&phy0>;
+	snps,reset-gpio = <&gpiob 12 GPIO_ACTIVE_HIGH>;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 10000 1000000>;
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
+	};
 };
 
 &fmc {
@@ -107,5 +127,4 @@
 	pinctrl-names = "default";
 	bus-width = <4>;
 	st,dirpol;
-	max-frequency = <25000000>;
 };

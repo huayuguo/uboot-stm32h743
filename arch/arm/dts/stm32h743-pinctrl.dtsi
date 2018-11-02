@@ -250,6 +250,20 @@
 					slew-rate = <3>;
 				};
 			};
+			ethernet_mii: mii@0 {
+	      			pins {
+		      			pinmux = <STM32H7_PG13_FUNC_ETH_MII_TXD0_ETH_RMII_TXD0>,
+			     			<STM32H7_PG14_FUNC_ETH_MII_TXD1_ETH_RMII_TXD1>,
+			    	 		<STM32H7_PB11_FUNC_ETH_MII_TX_EN_ETH_RMII_TX_EN>,
+			    	 		<STM32H7_PA2_FUNC_ETH_MDIO>,
+			    			<STM32H7_PC1_FUNC_ETH_MDC>,
+			    	 		<STM32H7_PA1_FUNC_ETH_MII_RX_CLK_ETH_RMII_REF_CLK>,
+			     			<STM32H7_PA7_FUNC_ETH_MII_RX_DV_ETH_RMII_CRS_DV>,
+			    	 		<STM32H7_PC4_FUNC_ETH_MII_RXD0_ETH_RMII_RXD0>,
+			     			<STM32H7_PC5_FUNC_ETH_MII_RXD1_ETH_RMII_RXD1>;
+		      				slew-rate = <2>;
+	      			};
+			};
 
 
 		};

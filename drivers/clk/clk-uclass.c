@@ -248,7 +248,7 @@ int clk_set_defaults(struct udevice *dev)
 	if (!(gd->flags & GD_FLG_RELOC))
 		return 0;
 		
-	debug("%s(%s)\n", __func__, dev_read_name(dev));
+	//debug("%s(%s)\n", __func__, dev_read_name(dev));
 
 	ret = clk_set_default_parents(dev);
 	if (ret)
