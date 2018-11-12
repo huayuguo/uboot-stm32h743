@@ -111,10 +111,10 @@ struct eth_dma_regs {
 #define MAC_MAX_FRAME_SZ	(1600)
 
 struct dmamacdescr {
-	u32 txrx_status;
-	u32 dmamac_cntl;
 	u32 dmamac_addr;
 	u32 dmamac_next;
+	u32 dmamac_cntl;
+	u32 txrx_status;
 } __aligned(ARCH_DMA_MINALIGN);
 
 /*

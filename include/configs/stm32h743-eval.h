@@ -15,6 +15,11 @@
 /*
  * Configuration of the external SDRAM memory
  */
+
+#define CONFIG_DW_GMAC_DEFAULT_DMA_PBL	(8)
+#define CONFIG_RMII
+
+
 #define CONFIG_NR_DRAM_BANKS		1
 #define CONFIG_SYS_SDRAM_BASE		0x60000000
 #define CONFIG_SYS_LOAD_ADDR		0x60400000
@@ -22,7 +27,7 @@
 
 #define CONFIG_ENV_SIZE			(8 << 10)
 
-#define CONFIG_SYS_HZ_CLOCK		1000000
+#define CONFIG_SYS_HZ_CLOCK		224000000
 
 #define CONFIG_CMDLINE_TAG
 #define CONFIG_SETUP_MEMORY_TAGS

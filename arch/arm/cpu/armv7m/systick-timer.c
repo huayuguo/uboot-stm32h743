@@ -36,7 +36,7 @@ struct cm3_systick {
 	uint32_t calibration;
 };
 
-#define TIMER_MAX_VAL		0x00FFFFFF
+#define TIMER_MAX_VAL		0xffffff
 #define SYSTICK_CTRL_EN		BIT(0)
 /* Clock source: 0 = Ref clock, 1 = CPU clock */
 #define SYSTICK_CTRL_CPU_CLK	BIT(2)

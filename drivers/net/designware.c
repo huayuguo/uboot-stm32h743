@@ -22,11 +22,11 @@
 #include <asm/io.h>
 #include <power/regulator.h>
 #include "designware.h"
-
+#define CONFIG_PHY_ADDR 0
 static int dw_mdio_read(struct mii_dev *bus, int addr, int devad, int reg)
 {
 
-	debug("%s ..............\n", __func__);
+	debug("%s ..........reg=%x....\n", __func__,reg);
 #ifdef CONFIG_DM_ETH
 	struct dw_eth_dev *priv = dev_get_priv((struct udevice *)bus->priv);
 	struct eth_mac_regs *mac_p = priv->mac_regs_p;
@@ -35,17 +35,24 @@ static int dw_mdio_read(struct mii_dev *bus, int addr, int devad, int reg)
 #endif
 	ulong start;
 	u16 miiaddr;
-	int timeout = CONFIG_MDIO_TIMEOUT;
-
+	int timeout = 35;
+	u32 readdate =0;
 	miiaddr = ((addr << MIIADDRSHIFT) & MII_ADDRMSK) |
 		  ((reg << MIIREGSHIFT) & MII_REGMSK);
+#ifdef CONFIG_STM32H7
+	writel((0X40D  | (reg << 16)), 0x40028200);
 
+#else
 	writel(miiaddr | MII_CLKRANGE_150_250M | MII_BUSY, &mac_p->miiaddr);
-
+#endif
+	debug("%s miiaddr= 0x%x \n", __func__,miiaddr | MII_CLKRANGE_150_250M | MII_BUSY);
 	start = get_timer(0);
 	while (get_timer(start) < timeout) {
-		if (!(readl(&mac_p->miiaddr) & MII_BUSY))
-			return readl(&mac_p->miidata);
+		if (!(readl(0x40028200) & MII_BUSY)){
+			readdate = readl(0x40028204);
+			debug("%s readdate =0x%x \n", __func__,readdate);
+			return readdate;
+			}
 		udelay(10);
 	};
 
@@ -67,15 +74,20 @@ static int dw_mdio_write(struct mii_dev *bus, int addr, int devad, int reg,
 	u16 miiaddr;
 	int ret = -ETIMEDOUT, timeout = CONFIG_MDIO_TIMEOUT;
 
-	writel(val, &mac_p->miidata);
+	writel(val, 0x40028204);
 	miiaddr = ((addr << MIIADDRSHIFT) & MII_ADDRMSK) |
 		  ((reg << MIIREGSHIFT) & MII_REGMSK) | MII_WRITE;
 
+#ifdef CONFIG_STM32H7
+	writel((0X405  | (reg << 16)), 0x40028200);
+
+#else
 	writel(miiaddr | MII_CLKRANGE_150_250M | MII_BUSY, &mac_p->miiaddr);
+#endif
 
 	start = get_timer(0);
 	while (get_timer(start) < timeout) {
-		if (!(readl(&mac_p->miiaddr) & MII_BUSY)) {
+		if (!(readl(0x40028200) & MII_BUSY)) {
 			ret = 0;
 			break;
 		}
@@ -126,7 +138,7 @@ static int dw_mdio_init(const char *name, void *priv)
 
 	debug("%s ..............\n", __func__);
 	if (!bus) {
-		printf("Failed to allocate MDIO bus\n");
+		debug("Failed to allocate MDIO bus\n");
 		return -ENOMEM;
 	}
 
@@ -179,7 +191,7 @@ static void tx_descs_init(struct dw_eth_dev *priv)
 			   (ulong)priv->tx_mac_descrtable +
 			   sizeof(priv->tx_mac_descrtable));
 
-	writel((ulong)&desc_table_p[0], &dma_p->txdesclistaddr);
+	writel((ulong)&desc_table_p[0],0X40029114);
 	priv->tx_currdescnum = 0;
 }
 
@@ -220,7 +232,7 @@ static void rx_descs_init(struct dw_eth_dev *priv)
 			   (ulong)priv->rx_mac_descrtable +
 			   sizeof(priv->rx_mac_descrtable));
 
-	writel((ulong)&desc_table_p[0], &dma_p->rxdesclistaddr);
+	writel((ulong)&desc_table_p[0], 0X4002911c);
 	priv->rx_currdescnum = 0;
 }
 
@@ -245,7 +257,7 @@ static int dw_adjust_link(struct dw_eth_dev *priv, struct eth_mac_regs *mac_p,
 {
 
 	debug("%s ..............\n", __func__);
-	u32 conf = readl(&mac_p->conf) | FRAMEBURSTENABLE | DISABLERXOWN;
+	u32 conf = readl(&mac_p->conf) | 1 << 10;
 
 	if (!phydev->link) {
 		printf("%s: No link.\n", phydev->dev->name);
@@ -298,10 +310,15 @@ int designware_eth_init(struct dw_eth_dev *priv, u8 *enetaddr)
 	 * When a MII PHY is used, we must set the PS bit for the DMA
 	 * reset to succeed.
 	 */
+#ifdef CONFIG_STM32H7
+
+
+#else
 	if (priv->phydev->interface == PHY_INTERFACE_MODE_MII)
 		writel(readl(&mac_p->conf) | MII_PORTSELECT, &mac_p->conf);
 	else
 		writel(readl(&mac_p->conf) & ~MII_PORTSELECT, &mac_p->conf);
+#endif
 
 	start = get_timer(0);
 	while (readl(&dma_p->busmode) & DMAMAC_SRST) {
@@ -322,8 +339,24 @@ int designware_eth_init(struct dw_eth_dev *priv, u8 *enetaddr)
 	rx_descs_init(priv);
 	tx_descs_init(priv);
 
-	writel(FIXEDBURST | PRIORXTX_41 | DMA_PBL, &dma_p->busmode);
+#ifdef CONFIG_STM32H7
+	writel(3 << 12,0X40029000); // 011: The priority ratio is 4:1  ETH_DMAMR.PR
+	writel(0X1010000 | 1  ,0X40029004); //FB: Fixed Burst Length ETH_DMASBMR.FB
+	writel(1 << 16 | 4 << 18,0X40029100);//DMA_PBL ETH_DMACCR.PBLX8
+	writel(8 << 16,0X40029104);//Transmit Programmable Burst Length ETH_DMACTXCR.TXPBL[5:0]
 
+#else
+	writel(FIXEDBURST | PRIORXTX_41 | DMA_PBL, &dma_p->busmode);
+#endif
+
+
+#ifdef CONFIG_STM32H7
+
+	writel(readl(0X40028d00) | 1 << 0 | 1 << 1,0X40028d00);// 刷新发送 FIFO?????
+	writel(readl(0X40029104) | 8 << 16 ,0X40029104);
+	writel(readl(0X40029108) | 1 << 0 | 1 << 31,0X40029108);
+
+#else
 #ifndef CONFIG_DW_MAC_FORCE_THRESHOLD_MODE
 	writel(readl(&dma_p->opmode) | FLUSHTXFIFO | STOREFORWARD,
 	       &dma_p->opmode);
@@ -338,6 +371,7 @@ int designware_eth_init(struct dw_eth_dev *priv, u8 *enetaddr)
 	writel((CONFIG_DW_AXI_BURST_LEN & 0x1FF >> 1), &dma_p->axibus);
 #endif
 
+#endif
 	/* Start up the PHY */
 	ret = phy_startup(priv->phydev);
 	if (ret) {
@@ -370,6 +404,7 @@ int designware_eth_enable(struct dw_eth_dev *priv)
 
 static int _dw_eth_send(struct dw_eth_dev *priv, void *packet, int length)
 {
+	int i;
 	struct eth_dma_regs *dma_p = priv->dma_regs_p;
 	u32 desc_num = priv->tx_currdescnum;
 	struct dmamacdescr *desc_p = &priv->tx_mac_descrtable[desc_num];
@@ -387,7 +422,27 @@ static int _dw_eth_send(struct dw_eth_dev *priv, void *packet, int length)
 	 * ARCH_DMA_MINALIGN and padded appropriately.
 	 */
 
-		debug("%s ..............\n", __func__);
+	debug("%s ..............\n", __func__);
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
+	debug("%s DMA Debug status register = %x\n", __func__,readl(0X4002900c));
+	debug("%s MAC Debug status register = %x\n", __func__,readl(0X40028114));
+	debug("%s DMA Tx descriptor register = %x\n", __func__,readl(0X40029114));
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s MDA Debug status register = %x\n", __func__,readl(0X4002900c));
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
+	debug("%s MAC Debug status register = %x\n", __func__,readl(0X40028114));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s DMA Tx descriptor register = %x\n", __func__,readl(0X40029114));
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));	
+	debug("length =%x date= ",length);
+	for(i=0;i<length;i+=4){
+		debug("%x,",readl(packet+i));
+		if((i/16)) debug("\n");
+	}
+	debug("\n date end \n");
 	invalidate_dcache_range(desc_start, desc_end);
 
 	/* Check if the descriptor is owned by CPU */
@@ -427,9 +482,27 @@ static int _dw_eth_send(struct dw_eth_dev *priv, void *packet, int length)
 
 	priv->tx_currdescnum = desc_num;
 
-	/* Start the transmission */
+	/* Start the transmission */  
+#ifdef CONFIG_STM32H7
+	writel( 1,0X4002912c);
+	writel(readl(0X40029104) | 1 << 0,0X40029104);
+#else
 	writel(POLL_DATA, &dma_p->txpolldemand);
-
+#endif
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
+	debug("%s DMA Debug status register = %x\n", __func__,readl(0X4002900c));
+	debug("%s MAC Debug status register = %x\n", __func__,readl(0X40028114));
+	debug("%s DMA Tx descriptor register = %x\n", __func__,readl(0X40029114));
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s MDA Debug status register = %x\n", __func__,readl(0X4002900c));
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
+	debug("%s MAC Debug status register = %x\n", __func__,readl(0X40028114));
+	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
+	debug("%s DMA Tx descriptor register = %x\n", __func__,readl(0X40029114));
+	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
 	return 0;
 }
 
@@ -498,7 +571,7 @@ static int dw_phy_init(struct dw_eth_dev *priv, void *dev)
 #ifdef CONFIG_PHY_ADDR
 	mask = 1 << CONFIG_PHY_ADDR;
 #endif
-
+	debug("%s ..............mask = %d \n", __func__,mask);
 	phydev = phy_find_by_mask(priv->bus, mask, priv->interface);
 	if (!phydev)
 		return -ENODEV;
@@ -585,7 +658,7 @@ int designware_initialize(ulong base_addr, u32 interface)
 	}
 
 	if ((phys_addr_t)priv + sizeof(*priv) > (1ULL << 32)) {
-		printf("designware: buffers are outside DMA memory\n");
+		debug("designware: buffers are outside DMA memory\n");
 		return -EINVAL;
 	}
 
@@ -746,9 +819,10 @@ int designware_eth_probe(struct udevice *dev)
 	ret = reset_get_bulk(dev, &reset_bulk);
 	if (ret)
 		dev_warn(dev, "Can't get reset: %d\n", ret);
-	else
-		reset_deassert_bulk(&reset_bulk);
-
+	else{
+		ret =  reset_deassert_bulk(&reset_bulk);
+		debug("%s: reset_deassert_bulk ret =%d\n",__func__,ret);
+	}
 #ifdef CONFIG_DM_PCI
 	/*
 	 * If we are on PCI bus, either directly attached to a PCI root port,

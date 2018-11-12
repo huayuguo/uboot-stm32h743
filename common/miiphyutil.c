@@ -41,7 +41,7 @@ struct mii_dev *miiphy_get_dev_by_name(const char *devname)
 	struct mii_dev *dev;
 
 	if (!devname) {
-		printf("NULL device name!\n");
+		debug("NULL device name!\n");
 		return NULL;
 	}
 
@@ -92,7 +92,7 @@ int mdio_register(struct mii_dev *bus)
 
 	/* check if we have unique name */
 	if (miiphy_get_dev_by_name(bus->name)) {
-		printf("mdio_register: non unique device name '%s'\n",
+		debug("mdio_register: non unique device name '%s'\n",
 			bus->name);
 		return -1;
 	}

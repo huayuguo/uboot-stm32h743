@@ -678,6 +678,7 @@ int __weak get_phy_id(struct mii_dev *bus, int addr, int devad, u32 *phy_id)
 	 * Grab the bits from PHYIR1, and put them
 	 * in the upper half
 	 */
+	debug("%s ------------------xxxxxxxxxxxxxxxx \n", __func__);
 	phy_reg = bus->read(bus, addr, devad, MII_PHYSID1);
 
 	if (phy_reg < 0)
@@ -692,7 +693,7 @@ int __weak get_phy_id(struct mii_dev *bus, int addr, int devad, u32 *phy_id)
 		return -EIO;
 
 	*phy_id |= (phy_reg & 0xffff);
-
+	debug("%s phy_id =0x%x \n", __func__,*phy_id);
 	return 0;
 }
 
@@ -717,6 +718,7 @@ static struct phy_device *search_for_existing_phy(struct mii_dev *bus,
 						  uint phy_mask,
 						  phy_interface_t interface)
 {
+	debug("%d PHY mask: \n", phy_mask);
 	/* If we have one, return the existing device, with new interface */
 	while (phy_mask) {
 		int addr = ffs(phy_mask) - 1;
@@ -850,9 +852,9 @@ struct phy_device *phy_find_by_mask(struct mii_dev *bus, uint phy_mask,
 	/* Reset the bus */
 	if (bus->reset) {
 		bus->reset(bus);
-
+	debug("%s .......reset phy.......\n", __func__);
 		/* Wait 15ms to make sure the PHY has come out of hard reset */
-		mdelay(15);
+		mdelay(105);
 	}
 
 	return get_phy_device_by_mask(bus, phy_mask, interface);
