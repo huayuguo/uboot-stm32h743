@@ -178,7 +178,7 @@ static void tx_descs_init(struct dw_eth_dev *priv)
 		desc_p->dmamac_cntl = 0;
 		desc_p->txrx_status &= ~(DESC_TXSTS_MSK | DESC_TXSTS_OWNBYDMA);
 #else
-		desc_p->dmamac_cntl = DESC_TXCTRL_TXCHAIN;
+		desc_p->dmamac_cntl = 0;
 		desc_p->txrx_status = 0;
 #endif
 	}
@@ -192,6 +192,8 @@ static void tx_descs_init(struct dw_eth_dev *priv)
 			   sizeof(priv->tx_mac_descrtable));
 
 	writel((ulong)&desc_table_p[0],0X40029114);
+	writel(3,0x4002912C);
+
 	priv->tx_currdescnum = 0;
 }
 
@@ -218,8 +220,7 @@ static void rx_descs_init(struct dw_eth_dev *priv)
 		desc_p->dmamac_next = (ulong)&desc_table_p[idx + 1];
 
 		desc_p->dmamac_cntl =
-			(MAC_MAX_FRAME_SZ & DESC_RXCTRL_SIZE1MASK) |
-				      DESC_RXCTRL_RXCHAIN;
+			(MAC_MAX_FRAME_SZ & DESC_RXCTRL_SIZE1MASK);
 
 		desc_p->txrx_status = DESC_RXSTS_OWNBYDMA;
 	}
@@ -233,6 +234,8 @@ static void rx_descs_init(struct dw_eth_dev *priv)
 			   sizeof(priv->rx_mac_descrtable));
 
 	writel((ulong)&desc_table_p[0], 0X4002911c);
+	writel(readl(0x40029108) | 1528 << 1,0x40029108);//RBSZ[13:0]: Receive Buffer size
+	writel(3,0x40029130);
 	priv->rx_currdescnum = 0;
 }
 
@@ -312,7 +315,7 @@ int designware_eth_init(struct dw_eth_dev *priv, u8 *enetaddr)
 	 */
 #ifdef CONFIG_STM32H7
 
-
+	
 #else
 	if (priv->phydev->interface == PHY_INTERFACE_MODE_MII)
 		writel(readl(&mac_p->conf) | MII_PORTSELECT, &mac_p->conf);
@@ -340,6 +343,15 @@ int designware_eth_init(struct dw_eth_dev *priv, u8 *enetaddr)
 	tx_descs_init(priv);
 
 #ifdef CONFIG_STM32H7
+	writel(readl(0x40028000) | 1 << 27 | 0 << 23 | 0 << 22 |
+				1 << 21 | 1 << 20 | 1 << 19 | 1 << 17 | 0 << 16
+				 | 0 << 12 | 0 << 11 | 1 << 10 | 0 << 9 | 1 << 8
+				  | 0 << 7| 2 << 5| 0 << 4| 0 << 3| 0 << 2,0x40028000);
+	writel(readl(0x40028004) | 0 << 24 | 1 << 16 | 0x618 << 0,0x40028004);
+	writel(0 << 8 | 0 << 0,0x4002800c);//ETH_MACWTR
+	writel(0 << 1 ,0x40028070);//ETH_MACQTXFCR
+	writel(0x00700000 | 1 << 6 | 0 << 4 | 0 << 3 ,0x40028d30);//ETH_MTLRQOMR
+
 	writel(3 << 12,0X40029000); // 011: The priority ratio is 4:1  ETH_DMAMR.PR
 	writel(0X1010000 | 1  ,0X40029004); //FB: Fixed Burst Length ETH_DMASBMR.FB
 	writel(1 << 16 | 4 << 18,0X40029100);//DMA_PBL ETH_DMACCR.PBLX8
@@ -352,9 +364,9 @@ int designware_eth_init(struct dw_eth_dev *priv, u8 *enetaddr)
 
 #ifdef CONFIG_STM32H7
 
-	writel(readl(0X40028d00) | 1 << 0 | 1 << 1,0X40028d00);// 刷新发送 FIFO?????
-	writel(readl(0X40029104) | 8 << 16 ,0X40029104);
-	writel(readl(0X40029108) | 1 << 0 | 1 << 31,0X40029108);
+	writel(readl(0x40028d00) | 1 << 1,0x40028d00);// 刷新发送 FIFO?????
+	writel(readl(0x40029104) | 8 << 16 ,0X40029104);
+	writel(readl(0x40029108) | 1 << 0 | 1 << 31,0X40029108);
 
 #else
 #ifndef CONFIG_DW_MAC_FORCE_THRESHOLD_MODE
@@ -466,13 +478,11 @@ static int _dw_eth_send(struct dw_eth_dev *priv, void *packet, int length)
 	desc_p->txrx_status &= ~(DESC_TXSTS_MSK);
 	desc_p->txrx_status |= DESC_TXSTS_OWNBYDMA;
 #else
-	desc_p->dmamac_cntl |= ((length << DESC_TXCTRL_SIZE1SHFT) &
-			       DESC_TXCTRL_SIZE1MASK) | DESC_TXCTRL_TXLAST |
-			       DESC_TXCTRL_TXFIRST;
+	desc_p->dmamac_cntl =0;
+	desc_p->dmamac_cntl |= (length << DESC_TXCTRL_SIZE1SHFT) & DESC_TXCTRL_SIZE1MASK;
 
-	desc_p->txrx_status = DESC_TXSTS_OWNBYDMA;
+	desc_p->txrx_status = DESC_TXSTS_OWNBYDMA | First_Descriptor | length;
 #endif
-
 	/* Flush modified buffer descriptor */
 	flush_dcache_range(desc_start, desc_end);
 
@@ -482,6 +492,8 @@ static int _dw_eth_send(struct dw_eth_dev *priv, void *packet, int length)
 
 	priv->tx_currdescnum = desc_num;
 
+
+	debug("%s DMA Tx desc_p->txrx_status = %x\n", __func__,desc_p->txrx_status);
 	/* Start the transmission */  
 #ifdef CONFIG_STM32H7
 	writel( 1,0X4002912c);
@@ -489,6 +501,7 @@ static int _dw_eth_send(struct dw_eth_dev *priv, void *packet, int length)
 #else
 	writel(POLL_DATA, &dma_p->txpolldemand);
 #endif
+	debug("%s DMA Tx desc_p->txrx_status = %x\n", __func__,desc_p->txrx_status);
 	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
 	debug("%s DMA Debug status register = %x\n", __func__,readl(0X4002900c));
 	debug("%s MAC Debug status register = %x\n", __func__,readl(0X40028114));
@@ -503,6 +516,7 @@ static int _dw_eth_send(struct dw_eth_dev *priv, void *packet, int length)
 	debug("%s Channel status register = %x\n", __func__,readl(0X40029160));
 	debug("%s DMA Tx descriptor register = %x\n", __func__,readl(0X40029114));
 	debug("%s DMA Tx being descriptor register = %x\n", __func__,readl(0X40029144));
+	debug("%s DMA Tx desc_p->txrx_status = %x\n", __func__,desc_p->txrx_status);
 	return 0;
 }
 

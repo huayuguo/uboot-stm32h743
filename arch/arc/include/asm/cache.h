@@ -14,7 +14,7 @@
  * And to satisfy users of ARCH_DMA_MINALIGN we just use largest line length
  * that may exist in either L1 or L2 (AKA SLC) caches on ARC.
  */
-#define ARCH_DMA_MINALIGN	128
+#define ARCH_DMA_MINALIGN	40
 
 #if defined(ARC_MMU_ABSENT)
 #define CONFIG_ARC_MMU_VER 0

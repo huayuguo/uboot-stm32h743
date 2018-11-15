@@ -142,18 +142,15 @@
 			status = "okay";
 		};
 		mac: ethernet@40028000 {
-			compatible = "st,stm32-dwmac","snps,dwmac-3.50a";
+			compatible = "st,stm32h7-dwmac","snps,dwc-qos-ethernet-4.10";
 			reg = <0x40028000 0x8000>;
 			reg-names = "stmmaceth";
 			clock-names = "stmmaceth", "mac-clk-tx", "mac-clk-rx";
 			clocks = <&rcc ETH1MAC_CK>,<&rcc ETH1TX_CK>,<&rcc ETH1RX_CK>;
 			resets = <&rcc STM32H7_AHB1_RESET(ETH1MAC)>;
+			reset-names = "stmmaceth";
 			interrupts = <61>, <62>;
 			interrupt-names = "macirq", "eth_wake_irq";
-			st,syscon = <&syscfg 0x4>;
-			snps,pbl = <8>;
-			snps,mixed-burst;
-			dma-ranges;
 			status = "disabled";
 		};
 	};

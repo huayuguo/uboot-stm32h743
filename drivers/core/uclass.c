@@ -22,7 +22,6 @@ DECLARE_GLOBAL_DATA_PTR;
 struct uclass *uclass_find(enum uclass_id key)
 {
 	struct uclass *uc;
-
 	if (!gd->dm_root)
 		return NULL;
 	/*
@@ -138,7 +137,6 @@ int uclass_destroy(struct uclass *uc)
 int uclass_get(enum uclass_id id, struct uclass **ucp)
 {
 	struct uclass *uc;
-
 	*ucp = NULL;
 	uc = uclass_find(id);
 	if (!uc)
@@ -307,17 +305,18 @@ int uclass_find_device_by_ofnode(enum uclass_id id, ofnode node,
 	struct uclass *uc;
 	struct udevice *dev;
 	int ret;
-	log(LOGC_DM, LOGL_DEBUG, "Looking for %s\n", ofnode_get_name(node));
+	debug("%s uclass_id= %d node = %d \n", __func__, id,node);
+	//log(LOGC_DM, LOGL_DEBUG, "Looking for %s\n", ofnode_get_name(node));
 	*devp = NULL;
 	if (!ofnode_valid(node))
 		return -ENODEV;
+
 	ret = uclass_get(id, &uc);
 	if (ret)
 		return ret;
-
+	debug("%s uclass_id= %d node = %d devp = %p and ret =%d\n", __func__, id,node,*devp,ret);
 	list_for_each_entry(dev, &uc->dev_head, uclass_node) {
-		log(LOGC_DM, LOGL_DEBUG_CONTENT, "      - checking %s\n",
-		    dev->name);
+		//log(LOGC_DM, LOGL_DEBUG_CONTENT, "      - checking %s\n", dev->name);
 		if (ofnode_equal(dev_ofnode(dev), node)) {
 			*devp = dev;
 			goto done;
@@ -326,8 +325,7 @@ int uclass_find_device_by_ofnode(enum uclass_id id, ofnode node,
 	ret = -ENODEV;
 
 done:
-	log(LOGC_DM, LOGL_DEBUG, "   - result for %s: %s (ret=%d)\n",
-	    ofnode_get_name(node), *devp ? (*devp)->name : "(none)", ret);
+	log(LOGC_DM, LOGL_DEBUG, "   - result for %s: %s (ret=%d)\n",ofnode_get_name(node), *devp ? (*devp)->name : "(none)", ret);
 	return ret;
 }
 
@@ -457,11 +455,11 @@ int uclass_get_device_by_ofnode(enum uclass_id id, ofnode node,
 	int ret;
 	debug("%s uclass_id= %d node = %d \n", __func__, id,node);
 
-	log(LOGC_DM, LOGL_DEBUG, "Looking for %s\n", ofnode_get_name(node));
+	//log(LOGC_DM, LOGL_DEBUG, "Looking for %s\n", ofnode_get_name(node));
 	*devp = NULL;
 	ret = uclass_find_device_by_ofnode(id, node, &dev);
-	log(LOGC_DM, LOGL_DEBUG, "   - result for %s: %s (ret=%d)\n",
-	    ofnode_get_name(node), dev ? dev->name : "(none)", ret);
+	//log(LOGC_DM, LOGL_DEBUG, "   - result for %s: %s (ret=%d)\n",
+	    //ofnode_get_name(node), dev ? dev->name : "(none)", ret);
 	debug("%s uclass_id= %d node = %d uclass_find_device_by_ofnode ret =%d \n", __func__, id,node,ret);
 	return uclass_get_device_tail(dev, ret, devp);
 }

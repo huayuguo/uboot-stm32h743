@@ -139,6 +139,7 @@ struct dmamacdescr {
 #else
 
 #define DESC_TXSTS_OWNBYDMA		(1 << 31)
+#define First_Descriptor  (1 << 29)
 #define DESC_TXSTS_MSK			(0x1FFFF << 0)
 
 #endif
@@ -187,7 +188,7 @@ struct dmamacdescr {
 #define DESC_TXCTRL_TXRINGEND		(1 << 25)
 #define DESC_TXCTRL_TXCHAIN		(1 << 24)
 
-#define DESC_TXCTRL_SIZE1MASK		(0x7FF << 0)
+#define DESC_TXCTRL_SIZE1MASK		(0x3FFF << 0)
 #define DESC_TXCTRL_SIZE1SHFT		(0)
 #define DESC_TXCTRL_SIZE2MASK		(0x7FF << 11)
 #define DESC_TXCTRL_SIZE2SHFT		(11)
