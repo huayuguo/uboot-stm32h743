@@ -227,7 +227,7 @@ struct eqos_tegra186_regs {
 #define EQOS_DESCRIPTORS_SIZE	ALIGN(EQOS_DESCRIPTORS_NUM * \
 				      EQOS_DESCRIPTOR_SIZE, ARCH_DMA_MINALIGN)
 #define EQOS_BUFFER_ALIGN	ARCH_DMA_MINALIGN
-#define EQOS_MAX_PACKET_SIZE	ALIGN(1520, ARCH_DMA_MINALIGN)
+#define EQOS_MAX_PACKET_SIZE	ALIGN(1528, ARCH_DMA_MINALIGN)
 #define EQOS_RX_BUFFER_SIZE	(EQOS_DESCRIPTORS_RX * EQOS_MAX_PACKET_SIZE)
 
 /*
@@ -398,7 +398,7 @@ static int eqos_mdio_read(struct mii_dev *bus, int mdio_addr, int mdio_devad,
 		EQOS_MAC_MDIO_ADDRESS_C45E;
 	val |= (mdio_addr << EQOS_MAC_MDIO_ADDRESS_PA_SHIFT) |
 		(mdio_reg << EQOS_MAC_MDIO_ADDRESS_RDA_SHIFT) |
-		(EQOS_MAC_MDIO_ADDRESS_CR_20_35 <<
+		(1 <<
 		 EQOS_MAC_MDIO_ADDRESS_CR_SHIFT) |
 		(EQOS_MAC_MDIO_ADDRESS_GOC_READ <<
 		 EQOS_MAC_MDIO_ADDRESS_GOC_SHIFT) |
@@ -414,7 +414,7 @@ static int eqos_mdio_read(struct mii_dev *bus, int mdio_addr, int mdio_devad,
 	}
 
 	val = readl(&eqos->mac_regs->mdio_data);
-	val &= EQOS_MAC_MDIO_DATA_GD_MASK;
+	//val &= EQOS_MAC_MDIO_DATA_GD_MASK;
 
 	debug("%s: val=%x\n", __func__, val);
 
@@ -498,79 +498,6 @@ static int eqos_mdio_reset(struct mii_dev *bus)
 }
 #endif
 
-static int eqos_start_clks_tegra186(struct udevice *dev)
-{
-	struct eqos_priv *eqos = dev_get_priv(dev);
-	int ret;
-
-	debug("%s(dev=%p):\n", __func__, dev);
-
-	ret = clk_enable(&eqos->clk_slave_bus);
-	if (ret < 0) {
-		debug("clk_enable(clk_slave_bus) failed: %d", ret);
-		goto err;
-	}
-
-	ret = clk_enable(&eqos->clk_master_bus);
-	if (ret < 0) {
-		debug("clk_enable(clk_master_bus) failed: %d", ret);
-		goto err_disable_clk_slave_bus;
-	}
-
-	ret = clk_enable(&eqos->clk_rx);
-	if (ret < 0) {
-		debug("clk_enable(clk_rx) failed: %d", ret);
-		goto err_disable_clk_master_bus;
-	}
-
-	ret = clk_enable(&eqos->clk_ptp_ref);
-	if (ret < 0) {
-		debug("clk_enable(clk_ptp_ref) failed: %d", ret);
-		goto err_disable_clk_rx;
-	}
-
-	ret = clk_set_rate(&eqos->clk_ptp_ref, 125 * 1000 * 1000);
-	if (ret < 0) {
-		debug("clk_set_rate(clk_ptp_ref) failed: %d", ret);
-		goto err_disable_clk_ptp_ref;
-	}
-
-	ret = clk_enable(&eqos->clk_tx);
-	if (ret < 0) {
-		debug("clk_enable(clk_tx) failed: %d", ret);
-		goto err_disable_clk_ptp_ref;
-	}
-
-	debug("%s: OK\n", __func__);
-	return 0;
-
-err_disable_clk_ptp_ref:
-	clk_disable(&eqos->clk_ptp_ref);
-err_disable_clk_rx:
-	clk_disable(&eqos->clk_rx);
-err_disable_clk_master_bus:
-	clk_disable(&eqos->clk_master_bus);
-err_disable_clk_slave_bus:
-	clk_disable(&eqos->clk_slave_bus);
-err:
-	debug("%s: FAILED: %d\n", __func__, ret);
-	return ret;
-}
-
-void eqos_stop_clks_tegra186(struct udevice *dev)
-{
-	struct eqos_priv *eqos = dev_get_priv(dev);
-
-	debug("%s(dev=%p):\n", __func__, dev);
-
-	clk_disable(&eqos->clk_tx);
-	clk_disable(&eqos->clk_ptp_ref);
-	clk_disable(&eqos->clk_rx);
-	clk_disable(&eqos->clk_master_bus);
-	clk_disable(&eqos->clk_slave_bus);
-
-	debug("%s: OK\n", __func__);
-}
 
 static int eqos_start_resets_tegra186(struct udevice *dev)
 {
@@ -837,6 +764,65 @@ static int eqos_adjust_link(struct udevice *dev)
 	return 0;
 }
 
+static int eqos_probe_resources_core(struct udevice *dev)
+{
+	struct eqos_priv *eqos = dev_get_priv(dev);
+	int ret;
+
+	debug("%s(dev=%p):\n", __func__, dev);
+
+	eqos->descs = eqos_alloc_descs(EQOS_DESCRIPTORS_TX +
+				       EQOS_DESCRIPTORS_RX);
+	if (!eqos->descs) {
+		debug("%s: eqos_alloc_descs() failed\n", __func__);
+		ret = -ENOMEM;
+		goto err;
+	}
+	eqos->tx_descs = (struct eqos_desc *)eqos->descs;
+	eqos->rx_descs = (eqos->tx_descs + EQOS_DESCRIPTORS_TX);
+	debug("%s: tx_descs=%p, rx_descs=%p\n", __func__, eqos->tx_descs,
+	      eqos->rx_descs);
+
+	eqos->tx_dma_buf = memalign(EQOS_BUFFER_ALIGN, EQOS_MAX_PACKET_SIZE);
+	if (!eqos->tx_dma_buf) {
+	
+		debug("%s: memalign(tx_dma_buf) failed\n", __func__);
+		ret = -ENOMEM;
+		goto err_free_descs;
+	}
+	debug("%s: rx_dma_buf=%p\n", __func__, eqos->rx_dma_buf);
+
+	eqos->rx_dma_buf = memalign(EQOS_BUFFER_ALIGN, EQOS_RX_BUFFER_SIZE);
+	if (!eqos->rx_dma_buf) {
+		debug("%s: memalign(rx_dma_buf) failed\n", __func__);
+		ret = -ENOMEM;
+		goto err_free_tx_dma_buf;
+	}
+	debug("%s: tx_dma_buf=%p\n", __func__, eqos->tx_dma_buf);
+
+	eqos->rx_pkt = malloc(EQOS_MAX_PACKET_SIZE);
+	if (!eqos->rx_pkt) {
+		debug("%s: malloc(rx_pkt) failed\n", __func__);
+		ret = -ENOMEM;
+		goto err_free_rx_dma_buf;
+	}
+	debug("%s: rx_pkt=%p\n", __func__, eqos->rx_pkt);
+
+	debug("%s: OK\n", __func__);
+	return 0;
+
+err_free_rx_dma_buf:
+	free(eqos->rx_dma_buf);
+err_free_tx_dma_buf:
+	free(eqos->tx_dma_buf);
+err_free_descs:
+	eqos_free_descs(eqos->descs);
+err:
+
+	debug("%s: returns %d\n", __func__, ret);
+	return ret;
+}
+
 static int eqos_write_hwaddr(struct udevice *dev)
 {
 	struct eth_pdata *plat = dev_get_platdata(dev);
@@ -904,7 +890,7 @@ static int eqos_start(struct udevice *dev)
 	ret = eqos_start_resets_tegra186(dev);
 	if (ret < 0) {
 		debug("eqos_start_resets_tegra186() failed: %d", ret);
-		goto err_stop_clks;
+		return ret;
 	}
 
 	udelay(10);
@@ -1081,10 +1067,15 @@ static int eqos_start(struct udevice *dev)
 
 	/* RX buffer size. Must be a multiple of bus width */
 	clrsetbits_le32(&eqos->dma_regs->ch0_rx_control,
-			EQOS_DMA_CH0_RX_CONTROL_RBSZ_MASK <<
+			0xffffffff << 0,
+			1 << 31); //rpf DMA Rx Channel Packet Flush
+
+	clrsetbits_le32(&eqos->dma_regs->ch0_rx_control,
+			0x3fffff <<
 			EQOS_DMA_CH0_RX_CONTROL_RBSZ_SHIFT,
 			EQOS_MAX_PACKET_SIZE <<
 			EQOS_DMA_CH0_RX_CONTROL_RBSZ_SHIFT);
+
 
 	setbits_le32(&eqos->dma_regs->ch0_control,
 		     EQOS_DMA_CH0_CONTROL_PBLX8);
@@ -1096,6 +1087,7 @@ static int eqos_start(struct udevice *dev)
 	 * Half of n * 256 is n * 128, so pbl == tqs, modulo the -1.
 	 */
 	pbl = tqs + 1;
+	debug("%s: pbl= %d\n", __func__,pbl);
 	if (pbl > 32)
 		pbl = 32;
 	clrsetbits_le32(&eqos->dma_regs->ch0_tx_control,
@@ -1106,7 +1098,7 @@ static int eqos_start(struct udevice *dev)
 	clrsetbits_le32(&eqos->dma_regs->ch0_rx_control,
 			EQOS_DMA_CH0_RX_CONTROL_RXPBL_MASK <<
 			EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT,
-			8 << EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT);
+			0x20 << EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT);
 
 	/* DMA performance configuration */
 	val = (2 << EQOS_DMA_SYSBUS_MODE_RD_OSR_LMT_SHIFT) |
@@ -1115,6 +1107,7 @@ static int eqos_start(struct udevice *dev)
 	writel(val, &eqos->dma_regs->sysbus_mode);
 
 	/* Set up descriptors */
+	debug("%s: ETH_DMACRXCR= 0x%x\n", __func__,readl(&eqos->dma_regs->ch0_rx_control));
 
 	memset(eqos->descs, 0, EQOS_DESCRIPTORS_SIZE);
 	for (i = 0; i < EQOS_DESCRIPTORS_RX; i++) {
@@ -1165,8 +1158,6 @@ err_shutdown_phy:
 	eqos->phy = NULL;
 err_stop_resets:
 	eqos_stop_resets_tegra186(dev);
-err_stop_clks:
-	eqos_stop_clks_tegra186(dev);
 err:
 	debug("FAILED: %d", ret);
 	return ret;
@@ -1274,8 +1265,10 @@ int eqos_recv(struct udevice *dev, int flags, uchar **packetp)
 	int length;
 
 	debug("%s(dev=%p, flags=%x):\n", __func__, dev, flags);
+	debug("%s(eqos->rx_desc_idx=%d)\n", __func__,eqos->rx_desc_idx);
 
 	rx_desc = &(eqos->rx_descs[eqos->rx_desc_idx]);
+	debug("%s des0=0x%x des1=0x%x des2=0x%x des3=0x%x \n", __func__,rx_desc->des0,rx_desc->des1,rx_desc->des2,rx_desc->des3);
 	if (rx_desc->des3 & EQOS_DESC3_OWN) {
 		debug("%s: RX packet not available\n", __func__);
 		return -EAGAIN;
@@ -1325,64 +1318,6 @@ int eqos_free_pkt(struct udevice *dev, uchar *packet, int length)
 	eqos->rx_desc_idx %= EQOS_DESCRIPTORS_RX;
 
 	return 0;
-}
-
-static int eqos_probe_resources_core(struct udevice *dev)
-{
-	struct eqos_priv *eqos = dev_get_priv(dev);
-	int ret;
-
-	debug("%s(dev=%p):\n", __func__, dev);
-
-	eqos->descs = eqos_alloc_descs(EQOS_DESCRIPTORS_TX +
-				       EQOS_DESCRIPTORS_RX);
-	if (!eqos->descs) {
-		debug("%s: eqos_alloc_descs() failed\n", __func__);
-		ret = -ENOMEM;
-		goto err;
-	}
-	eqos->tx_descs = (struct eqos_desc *)eqos->descs;
-	eqos->rx_descs = (eqos->tx_descs + EQOS_DESCRIPTORS_TX);
-	debug("%s: tx_descs=%p, rx_descs=%p\n", __func__, eqos->tx_descs,
-	      eqos->rx_descs);
-
-	eqos->tx_dma_buf = memalign(EQOS_BUFFER_ALIGN, EQOS_MAX_PACKET_SIZE);
-	if (!eqos->tx_dma_buf) {
-		debug("%s: memalign(tx_dma_buf) failed\n", __func__);
-		ret = -ENOMEM;
-		goto err_free_descs;
-	}
-	debug("%s: rx_dma_buf=%p\n", __func__, eqos->rx_dma_buf);
-
-	eqos->rx_dma_buf = memalign(EQOS_BUFFER_ALIGN, EQOS_RX_BUFFER_SIZE);
-	if (!eqos->rx_dma_buf) {
-		debug("%s: memalign(rx_dma_buf) failed\n", __func__);
-		ret = -ENOMEM;
-		goto err_free_tx_dma_buf;
-	}
-	debug("%s: tx_dma_buf=%p\n", __func__, eqos->tx_dma_buf);
-
-	eqos->rx_pkt = malloc(EQOS_MAX_PACKET_SIZE);
-	if (!eqos->rx_pkt) {
-		debug("%s: malloc(rx_pkt) failed\n", __func__);
-		ret = -ENOMEM;
-		goto err_free_rx_dma_buf;
-	}
-	debug("%s: rx_pkt=%p\n", __func__, eqos->rx_pkt);
-
-	debug("%s: OK\n", __func__);
-	return 0;
-
-err_free_rx_dma_buf:
-	free(eqos->rx_dma_buf);
-err_free_tx_dma_buf:
-	free(eqos->tx_dma_buf);
-err_free_descs:
-	eqos_free_descs(eqos->descs);
-err:
-
-	debug("%s: returns %d\n", __func__, ret);
-	return ret;
 }
 
 static int eqos_remove_resources_core(struct udevice *dev)

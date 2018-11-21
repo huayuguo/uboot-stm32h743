@@ -56,61 +56,6 @@ ulong timer_get_boot_us(void)
 extern unsigned long __weak timer_read_counter(void);
 #endif
 
-/*#ifdef CONFIG_TIMER
-ulong notrace get_tbclk(void)
-{
-	if (!gd->timer) {
-#ifdef CONFIG_TIMER_EARLY
-		return timer_early_get_rate();
-#else
-		int ret;
-
-		ret = dm_timer_init();
-		if (ret)
-			return ret;
-#endif
-	}
-
-	return timer_get_rate(gd->timer);
-}
-
-uint64_t notrace get_ticks(void)
-{
-	u64 count;
-	int ret;
-
-	if (!gd->timer) {
-#ifdef CONFIG_TIMER_EARLY
-		return timer_early_get_count();
-#else
-		int ret;
-
-		ret = dm_timer_init();
-		if (ret)
-			return ret;
-#endif
-	}
-
-	ret = timer_get_count(gd->timer, &count);
-	if (ret)
-		return ret;
-
-	return count;
-}
-
-#else /* !CONFIG_TIMER */
-
-uint64_t __weak notrace get_ticks(void)
-{
-	unsigned long now = timer_read_counter();
-
-	/* increment tbu if tbl has rolled over */
-	if (now < gd->timebase_l)
-		gd->timebase_h++;
-	gd->timebase_l = now;
-	return ((uint64_t)gd->timebase_h << 32) | gd->timebase_l;
-}
-
 //#endif /* CONFIG_TIMER */
 
 /* Returns time in milliseconds */
@@ -121,17 +66,6 @@ static uint64_t notrace tick_to_time(uint64_t tick)
 	tick *= CONFIG_SYS_HZ;
 	do_div(tick, div);
 	return tick;
-}
-
-int __weak timer_init(void)
-{
-	return 0;
-}
-
-/* Returns time in milliseconds */
-ulong __weak get_timer(ulong base)
-{
-	return tick_to_time(get_ticks()) - base;
 }
 
 unsigned long __weak notrace timer_get_us(void)
