@@ -47,7 +47,8 @@
 #define EQOS_MAC_REGS_BASE 0x000
 struct eqos_mac_regs {
 	uint32_t configuration;				/* 0x000 */
-	uint32_t unused_004[(0x070 - 0x004) / 4];	/* 0x004 */
+	uint32_t MACECR;				/* 0x004 */	
+	uint32_t unused_004[(0x070 - 0x008) / 4];	/* 0x008 */
 	uint32_t q0_tx_flow_ctrl;			/* 0x070 */
 	uint32_t unused_070[(0x090 - 0x074) / 4];	/* 0x074 */
 	uint32_t rx_flow_ctrl;				/* 0x090 */
@@ -71,6 +72,8 @@ struct eqos_mac_regs {
 	uint32_t address0_low;				/* 0x304 */
 };
 
+#define EQOS_MAC_CONFIGURATION_SARC			BIT(28)
+#define EQOS_MAC_CONFIGURATION_IPC			BIT(27)
 #define EQOS_MAC_CONFIGURATION_GPSLCE			BIT(23)
 #define EQOS_MAC_CONFIGURATION_CST			BIT(21)
 #define EQOS_MAC_CONFIGURATION_ACS			BIT(20)
@@ -179,14 +182,14 @@ struct eqos_dma_regs {
 
 #define EQOS_DMA_MODE_SWR				BIT(0)
 
-#define EQOS_DMA_SYSBUS_MODE_RD_OSR_LMT_SHIFT		16
-#define EQOS_DMA_SYSBUS_MODE_RD_OSR_LMT_MASK		0xf
-#define EQOS_DMA_SYSBUS_MODE_EAME			BIT(11)
-#define EQOS_DMA_SYSBUS_MODE_BLEN16			BIT(3)
-#define EQOS_DMA_SYSBUS_MODE_BLEN8			BIT(2)
-#define EQOS_DMA_SYSBUS_MODE_BLEN4			BIT(1)
+#define EQOS_DMA_SYSBUS_MODE_RB				BIT(15)
+#define EQOS_DMA_SYSBUS_MODE_MB				BIT(14)
+#define EQOS_DMA_SYSBUS_MODE_AAL			BIT(12)
+#define EQOS_DMA_SYSBUS_MODE_FB				BIT(0)
 
+#define EQOS_DMA_CH0_CONTROL_DSL			BIT(18)
 #define EQOS_DMA_CH0_CONTROL_PBLX8			BIT(16)
+#define EQOS_DMA_CH0_CONTROL_MSS			BIT(0)
 
 #define EQOS_DMA_CH0_TX_CONTROL_TXPBL_SHIFT		16
 #define EQOS_DMA_CH0_TX_CONTROL_TXPBL_MASK		0x3f
@@ -221,8 +224,8 @@ struct eqos_tegra186_regs {
 #define EQOS_DESCRIPTOR_SIZE	(EQOS_DESCRIPTOR_WORDS * 4)
 /* We assume ARCH_DMA_MINALIGN >= 16; 16 is the EQOS HW minimum */
 #define EQOS_DESCRIPTOR_ALIGN	ARCH_DMA_MINALIGN
-#define EQOS_DESCRIPTORS_TX	4
-#define EQOS_DESCRIPTORS_RX	4
+#define EQOS_DESCRIPTORS_TX	8
+#define EQOS_DESCRIPTORS_RX	8
 #define EQOS_DESCRIPTORS_NUM	(EQOS_DESCRIPTORS_TX + EQOS_DESCRIPTORS_RX)
 #define EQOS_DESCRIPTORS_SIZE	ALIGN(EQOS_DESCRIPTORS_NUM * \
 				      EQOS_DESCRIPTOR_SIZE, ARCH_DMA_MINALIGN)
@@ -640,7 +643,7 @@ static int eqos_set_gmii_speed(struct udevice *dev)
 	debug("%s(dev=%p):\n", __func__, dev);
 
 	clrbits_le32(&eqos->mac_regs->configuration,
-		     EQOS_MAC_CONFIGURATION_PS | EQOS_MAC_CONFIGURATION_FES);
+		     EQOS_MAC_CONFIGURATION_FES);
 
 	return 0;
 }
@@ -652,7 +655,7 @@ static int eqos_set_mii_speed_100(struct udevice *dev)
 	debug("%s(dev=%p):\n", __func__, dev);
 
 	setbits_le32(&eqos->mac_regs->configuration,
-		     EQOS_MAC_CONFIGURATION_PS | EQOS_MAC_CONFIGURATION_FES);
+		     EQOS_MAC_CONFIGURATION_FES);
 
 	return 0;
 }
@@ -663,8 +666,8 @@ static int eqos_set_mii_speed_10(struct udevice *dev)
 
 	debug("%s(dev=%p):\n", __func__, dev);
 
-	clrsetbits_le32(&eqos->mac_regs->configuration,
-			EQOS_MAC_CONFIGURATION_FES, EQOS_MAC_CONFIGURATION_PS);
+	clrbits_le32(&eqos->mac_regs->configuration,
+		     EQOS_MAC_CONFIGURATION_FES);
 
 	return 0;
 }
@@ -951,7 +954,7 @@ static int eqos_start(struct udevice *dev)
 		      EQOS_MTL_TXQ0_OPERATION_MODE_TXQEN_SHIFT));
 
 	/* Transmit Queue weight */
-	writel(0x10, &eqos->mtl_regs->txq0_quantum_weight);
+	//writel(0x10, &eqos->mtl_regs->txq0_quantum_weight); //stm32H7 no have
 
 	/* Enable Store and Forward mode for RX, since no jumbo frame */
 	setbits_le32(&eqos->mtl_regs->rxq0_operation_mode,
@@ -970,7 +973,7 @@ static int eqos_start(struct udevice *dev)
 	 */
 	tqs = (128 << tx_fifo_sz) / 256 - 1;
 	rqs = (128 << rx_fifo_sz) / 256 - 1;
-
+	// tqs=rqs=7
 	clrsetbits_le32(&eqos->mtl_regs->txq0_operation_mode,
 			EQOS_MTL_TXQ0_OPERATION_MODE_TQS_MASK <<
 			EQOS_MTL_TXQ0_OPERATION_MODE_TQS_SHIFT,
@@ -980,105 +983,58 @@ static int eqos_start(struct udevice *dev)
 			EQOS_MTL_RXQ0_OPERATION_MODE_RQS_SHIFT,
 			rqs << EQOS_MTL_RXQ0_OPERATION_MODE_RQS_SHIFT);
 
-	/* Flow control used only if each channel gets 4KB or more FIFO */
-	if (rqs >= ((4096 / 256) - 1)) {
-		u32 rfd, rfa;
-
-		setbits_le32(&eqos->mtl_regs->rxq0_operation_mode,
-			     EQOS_MTL_RXQ0_OPERATION_MODE_EHFC);
-
-		/*
-		 * Set Threshold for Activating Flow Contol space for min 2
-		 * frames ie, (1500 * 1) = 1500 bytes.
-		 *
-		 * Set Threshold for Deactivating Flow Contol for space of
-		 * min 1 frame (frame size 1500bytes) in receive fifo
-		 */
-		if (rqs == ((4096 / 256) - 1)) {
-			/*
-			 * This violates the above formula because of FIFO size
-			 * limit therefore overflow may occur inspite of this.
-			 */
-			rfd = 0x3;	/* Full-3K */
-			rfa = 0x1;	/* Full-1.5K */
-		} else if (rqs == ((8192 / 256) - 1)) {
-			rfd = 0x6;	/* Full-4K */
-			rfa = 0xa;	/* Full-6K */
-		} else if (rqs == ((16384 / 256) - 1)) {
-			rfd = 0x6;	/* Full-4K */
-			rfa = 0x12;	/* Full-10K */
-		} else {
-			rfd = 0x6;	/* Full-4K */
-			rfa = 0x1E;	/* Full-16K */
-		}
-
-		clrsetbits_le32(&eqos->mtl_regs->rxq0_operation_mode,
-				(EQOS_MTL_RXQ0_OPERATION_MODE_RFD_MASK <<
-				 EQOS_MTL_RXQ0_OPERATION_MODE_RFD_SHIFT) |
-				(EQOS_MTL_RXQ0_OPERATION_MODE_RFA_MASK <<
-				 EQOS_MTL_RXQ0_OPERATION_MODE_RFA_SHIFT),
-				(rfd <<
-				 EQOS_MTL_RXQ0_OPERATION_MODE_RFD_SHIFT) |
-				(rfa <<
-				 EQOS_MTL_RXQ0_OPERATION_MODE_RFA_SHIFT));
-	}
-
 	/* Configure MAC */
-
-	clrsetbits_le32(&eqos->mac_regs->rxq_ctrl0,
-			EQOS_MAC_RXQ_CTRL0_RXQ0EN_MASK <<
-			EQOS_MAC_RXQ_CTRL0_RXQ0EN_SHIFT,
-			EQOS_MAC_RXQ_CTRL0_RXQ0EN_ENABLED_DCB <<
-			EQOS_MAC_RXQ_CTRL0_RXQ0EN_SHIFT);
-
+	//clrsetbits_le32(&eqos->mac_regs->rxq_ctrl0,
+	//		EQOS_MAC_RXQ_CTRL0_RXQ0EN_MASK <<
+	//		EQOS_MAC_RXQ_CTRL0_RXQ0EN_SHIFT,
+	//		EQOS_MAC_RXQ_CTRL0_RXQ0EN_ENABLED_DCB <<
+	//		EQOS_MAC_RXQ_CTRL0_RXQ0EN_SHIFT);
 	/* Set TX flow control parameters */
 	/* Set Pause Time */
-	setbits_le32(&eqos->mac_regs->q0_tx_flow_ctrl,
-		     0xffff << EQOS_MAC_Q0_TX_FLOW_CTRL_PT_SHIFT);
+	//setbits_le32(&eqos->mac_regs->q0_tx_flow_ctrl,
+		     //0xffff << EQOS_MAC_Q0_TX_FLOW_CTRL_PT_SHIFT);
 	/* Assign priority for TX flow control */
-	clrbits_le32(&eqos->mac_regs->txq_prty_map0,
-		     EQOS_MAC_TXQ_PRTY_MAP0_PSTQ0_MASK <<
-		     EQOS_MAC_TXQ_PRTY_MAP0_PSTQ0_SHIFT);
+	//clrbits_le32(&eqos->mac_regs->txq_prty_map0,
+		    // EQOS_MAC_TXQ_PRTY_MAP0_PSTQ0_MASK <<
+		     //EQOS_MAC_TXQ_PRTY_MAP0_PSTQ0_SHIFT);
 	/* Assign priority for RX flow control */
-	clrbits_le32(&eqos->mac_regs->rxq_ctrl2,
-		     EQOS_MAC_RXQ_CTRL2_PSRQ0_MASK <<
-		     EQOS_MAC_RXQ_CTRL2_PSRQ0_SHIFT);
+	//clrbits_le32(&eqos->mac_regs->rxq_ctrl2,
+	//	     EQOS_MAC_RXQ_CTRL2_PSRQ0_MASK <<
+	//	     EQOS_MAC_RXQ_CTRL2_PSRQ0_SHIFT);
 	/* Enable flow control */
-	setbits_le32(&eqos->mac_regs->q0_tx_flow_ctrl,
-		     EQOS_MAC_Q0_TX_FLOW_CTRL_TFE);
-	setbits_le32(&eqos->mac_regs->rx_flow_ctrl,
-		     EQOS_MAC_RX_FLOW_CTRL_RFE);
-
+	//setbits_le32(&eqos->mac_regs->q0_tx_flow_ctrl,
+		//     EQOS_MAC_Q0_TX_FLOW_CTRL_TFE);
+	//setbits_le32(&eqos->mac_regs->rx_flow_ctrl,
+	    // EQOS_MAC_RX_FLOW_CTRL_RFE);
 	clrsetbits_le32(&eqos->mac_regs->configuration,
 			EQOS_MAC_CONFIGURATION_GPSLCE |
 			EQOS_MAC_CONFIGURATION_WD |
 			EQOS_MAC_CONFIGURATION_JD |
 			EQOS_MAC_CONFIGURATION_JE,
 			EQOS_MAC_CONFIGURATION_CST |
-			EQOS_MAC_CONFIGURATION_ACS);
-
+			EQOS_MAC_CONFIGURATION_ACS|
+			EQOS_MAC_CONFIGURATION_IPC |
+			3 << EQOS_MAC_CONFIGURATION_SARC);
+			
+	setbits_le32(&eqos->mac_regs->MACECR,
+		     0X618);
 	eqos_write_hwaddr(dev);
 
 	/* Configure DMA */
 
 	/* Enable OSP mode */
-	setbits_le32(&eqos->dma_regs->ch0_tx_control,
-		     EQOS_DMA_CH0_TX_CONTROL_OSP);
-
-	/* RX buffer size. Must be a multiple of bus width */
-	clrsetbits_le32(&eqos->dma_regs->ch0_rx_control,
-			0xffffffff << 0,
-			1 << 31); //rpf DMA Rx Channel Packet Flush
+	//setbits_le32(&eqos->dma_regs->ch0_tx_control,
+	//	     EQOS_DMA_CH0_TX_CONTROL_OSP);
 
 	clrsetbits_le32(&eqos->dma_regs->ch0_rx_control,
-			0x3fffff <<
+			0x3fff <<
 			EQOS_DMA_CH0_RX_CONTROL_RBSZ_SHIFT,
 			EQOS_MAX_PACKET_SIZE <<
 			EQOS_DMA_CH0_RX_CONTROL_RBSZ_SHIFT);
 
 
 	setbits_le32(&eqos->dma_regs->ch0_control,
-		     EQOS_DMA_CH0_CONTROL_PBLX8);
+		     0x212 << 0);
 
 	/*
 	 * Burst length must be < 1/2 FIFO size.
@@ -1086,10 +1042,7 @@ static int eqos_start(struct udevice *dev)
 	 * Each burst is n * 8 (PBLX8) * 16 (AXI width) == 128 bytes.
 	 * Half of n * 256 is n * 128, so pbl == tqs, modulo the -1.
 	 */
-	pbl = tqs + 1;
-	debug("%s: pbl= %d\n", __func__,pbl);
-	if (pbl > 32)
-		pbl = 32;
+	pbl = 32;
 	clrsetbits_le32(&eqos->dma_regs->ch0_tx_control,
 			EQOS_DMA_CH0_TX_CONTROL_TXPBL_MASK <<
 			EQOS_DMA_CH0_TX_CONTROL_TXPBL_SHIFT,
@@ -1098,16 +1051,14 @@ static int eqos_start(struct udevice *dev)
 	clrsetbits_le32(&eqos->dma_regs->ch0_rx_control,
 			EQOS_DMA_CH0_RX_CONTROL_RXPBL_MASK <<
 			EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT,
-			0x20 << EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT);
+			4 << EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT);
 
 	/* DMA performance configuration */
-	val = (2 << EQOS_DMA_SYSBUS_MODE_RD_OSR_LMT_SHIFT) |
-		EQOS_DMA_SYSBUS_MODE_EAME | EQOS_DMA_SYSBUS_MODE_BLEN16 |
-		EQOS_DMA_SYSBUS_MODE_BLEN8 | EQOS_DMA_SYSBUS_MODE_BLEN4;
+	// Fixed Burst Length  
+	val = EQOS_DMA_SYSBUS_MODE_FB | EQOS_DMA_SYSBUS_MODE_AAL;
 	writel(val, &eqos->dma_regs->sysbus_mode);
 
 	/* Set up descriptors */
-	debug("%s: ETH_DMACRXCR= 0x%x\n", __func__,readl(&eqos->dma_regs->ch0_rx_control));
 
 	memset(eqos->descs, 0, EQOS_DESCRIPTORS_SIZE);
 	for (i = 0; i < EQOS_DESCRIPTORS_RX; i++) {
@@ -1169,7 +1120,7 @@ void eqos_stop(struct udevice *dev)
 	int i;
 
 	debug("%s(dev=%p):\n", __func__, dev);
-
+	return;
 	if (!eqos->started)
 		return;
 	eqos->started = false;
@@ -1246,7 +1197,7 @@ int eqos_send(struct udevice *dev, void *packet, int length)
 
 	writel((ulong)(tx_desc + 1), &eqos->dma_regs->ch0_txdesc_tail_pointer);
 
-	for (i = 0; i < 1000000; i++) {
+	for (i = 0; i < 100; i++) {
 		eqos_inval_desc(tx_desc);
 		if (!(readl(&tx_desc->des3) & EQOS_DESC3_OWN))
 			return 0;
