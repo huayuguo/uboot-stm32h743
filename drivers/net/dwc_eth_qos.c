@@ -72,6 +72,7 @@ struct eqos_mac_regs {
 	uint32_t address0_low;				/* 0x304 */
 };
 
+#define EQOS_MAC_CONFIGURATION_ARPEN		BIT(31)
 #define EQOS_MAC_CONFIGURATION_SARC			BIT(28)
 #define EQOS_MAC_CONFIGURATION_IPC			BIT(27)
 #define EQOS_MAC_CONFIGURATION_GPSLCE			BIT(23)
@@ -154,6 +155,8 @@ struct eqos_mtl_regs {
 #define EQOS_MTL_RXQ0_OPERATION_MODE_RFA_MASK		0x3f
 #define EQOS_MTL_RXQ0_OPERATION_MODE_EHFC		BIT(7)
 #define EQOS_MTL_RXQ0_OPERATION_MODE_RSF		BIT(5)
+#define EQOS_MTL_RXQ0_OPERATION_MODE_FUP		BIT(3)
+#define EQOS_MTL_RXQ0_OPERATION_MODE_RTC		BIT(0)
 
 #define EQOS_MTL_RXQ0_DEBUG_PRXQ_SHIFT			16
 #define EQOS_MTL_RXQ0_DEBUG_PRXQ_MASK			0x7fff
@@ -201,6 +204,8 @@ struct eqos_dma_regs {
 #define EQOS_DMA_CH0_RX_CONTROL_RBSZ_SHIFT		1
 #define EQOS_DMA_CH0_RX_CONTROL_RBSZ_MASK		0x3fff
 #define EQOS_DMA_CH0_RX_CONTROL_SR			BIT(0)
+#define EQOS_DMA_CH0_RX_CONTROL_RPF			BIT(31)
+
 
 /* These registers are Tegra186-specific */
 #define EQOS_TEGRA186_REGS_BASE 0x8800
@@ -258,6 +263,7 @@ struct eqos_desc {
 };
 
 #define EQOS_DESC3_OWN		BIT(31)
+#define EQOS_DESC3_IOC		BIT(30)
 #define EQOS_DESC3_FD		BIT(29)
 #define EQOS_DESC3_LD		BIT(28)
 #define EQOS_DESC3_BUF1V	BIT(24)
@@ -958,7 +964,7 @@ static int eqos_start(struct udevice *dev)
 
 	/* Enable Store and Forward mode for RX, since no jumbo frame */
 	setbits_le32(&eqos->mtl_regs->rxq0_operation_mode,
-		     EQOS_MTL_RXQ0_OPERATION_MODE_RSF);
+		     EQOS_MTL_RXQ0_OPERATION_MODE_RSF | EQOS_MTL_RXQ0_OPERATION_MODE_FUP);
 
 	/* Transmit/Receive queue fifo size; use all RAM for 1 queue */
 	val = readl(&eqos->mac_regs->hw_feature1);
@@ -1002,22 +1008,26 @@ static int eqos_start(struct udevice *dev)
 	//	     EQOS_MAC_RXQ_CTRL2_PSRQ0_MASK <<
 	//	     EQOS_MAC_RXQ_CTRL2_PSRQ0_SHIFT);
 	/* Enable flow control */
+
 	//setbits_le32(&eqos->mac_regs->q0_tx_flow_ctrl,
 		//     EQOS_MAC_Q0_TX_FLOW_CTRL_TFE);
+
 	//setbits_le32(&eqos->mac_regs->rx_flow_ctrl,
-	    // EQOS_MAC_RX_FLOW_CTRL_RFE);
+	     //EQOS_MAC_RX_FLOW_CTRL_RFE);
 	clrsetbits_le32(&eqos->mac_regs->configuration,
 			EQOS_MAC_CONFIGURATION_GPSLCE |
 			EQOS_MAC_CONFIGURATION_WD |
 			EQOS_MAC_CONFIGURATION_JD |
-			EQOS_MAC_CONFIGURATION_JE,
+			EQOS_MAC_CONFIGURATION_JE |
+			EQOS_MAC_CONFIGURATION_PS ,
 			EQOS_MAC_CONFIGURATION_CST |
 			EQOS_MAC_CONFIGURATION_ACS|
 			EQOS_MAC_CONFIGURATION_IPC |
-			3 << EQOS_MAC_CONFIGURATION_SARC);
+			EQOS_MAC_CONFIGURATION_ARPEN |
+			3 << 28);
 			
 	setbits_le32(&eqos->mac_regs->MACECR,
-		     0X618);
+		    1 << 24 | 0X618);
 	eqos_write_hwaddr(dev);
 
 	/* Configure DMA */
@@ -1051,7 +1061,7 @@ static int eqos_start(struct udevice *dev)
 	clrsetbits_le32(&eqos->dma_regs->ch0_rx_control,
 			EQOS_DMA_CH0_RX_CONTROL_RXPBL_MASK <<
 			EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT,
-			4 << EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT);
+			4 << EQOS_DMA_CH0_RX_CONTROL_RXPBL_SHIFT | EQOS_DMA_CH0_RX_CONTROL_RPF);
 
 	/* DMA performance configuration */
 	// Fixed Burst Length  
@@ -1120,7 +1130,7 @@ void eqos_stop(struct udevice *dev)
 	int i;
 
 	debug("%s(dev=%p):\n", __func__, dev);
-	return;
+	//return;
 	if (!eqos->started)
 		return;
 	eqos->started = false;
@@ -1219,12 +1229,14 @@ int eqos_recv(struct udevice *dev, int flags, uchar **packetp)
 	debug("%s(eqos->rx_desc_idx=%d)\n", __func__,eqos->rx_desc_idx);
 
 	rx_desc = &(eqos->rx_descs[eqos->rx_desc_idx]);
-	debug("%s des0=0x%x des1=0x%x des2=0x%x des3=0x%x \n", __func__,rx_desc->des0,rx_desc->des1,rx_desc->des2,rx_desc->des3);
+
+	invalidate_dcache_range(rx_desc, rx_desc+16);
+
+	debug("%s Channel status =0x%x  des3=0x%x \n", __func__,readl(0x40029160) ,rx_desc->des3);
 	if (rx_desc->des3 & EQOS_DESC3_OWN) {
 		debug("%s: RX packet not available\n", __func__);
 		return -EAGAIN;
 	}
-
 	*packetp = eqos->rx_dma_buf +
 		(eqos->rx_desc_idx * EQOS_MAX_PACKET_SIZE);
 	length = rx_desc->des3 & 0x7fff;
