@@ -37,7 +37,7 @@ void mpu_config(struct mpu_region_config *reg_config)
 
 	writel(reg_config->start_addr | VALID_REGION | reg_config->region_no,
 	       &V7M_MPU->rbar);
-
+	writel(4,0xE000EF9C);
 	writel(reg_config->xn << XN_SHIFT | reg_config->ap << AP_SHIFT | attr
 		| reg_config->reg_size << REGION_SIZE_SHIFT | ENABLE_REGION
 	       , &V7M_MPU->rasr);
