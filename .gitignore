@@ -27,6 +27,8 @@
 *.su
 *.swp
 *.tab.[ch]
+!*.config
+!*.config.old
 
 # Build tree
 /build-*
