@@ -157,6 +157,6 @@
 };
 
 &systick {
-	clock-frequency = <224000000>;
+	clock-frequency = <400000000>;
 	status = "okay";
 };

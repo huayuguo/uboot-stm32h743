@@ -330,10 +330,10 @@ struct pll_psc {
  * pll1_p = 250MHz / pll1_q = 250MHz pll1_r = 250Mhz
  */
 struct pll_psc sys_pll_psc = {
-	.divm = 25,
-	.divn = 448,
+	.divm = 5,
+	.divn = 160,
 	.divp = 2,
-	.divq = 2,
+	.divq = 4,
 	.divr = 2,
 };
 

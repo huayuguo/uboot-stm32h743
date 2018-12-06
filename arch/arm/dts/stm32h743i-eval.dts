@@ -116,10 +116,10 @@
 	 */
 	bank0: bank@0 {
 		st,sdram-control = /bits/ 8 <NO_COL_9 NO_ROW_13 MWIDTH_16 BANKS_4
-				  CAS_3 SDCLK_2 RD_BURST_EN RD_PIPE_DL_0>;
+				  CAS_2 SDCLK_2 RD_BURST_EN RD_PIPE_DL_0>;
 		st,sdram-timing = /bits/ 8 <TMRD_2 TXSR_8 TRAS_5 TRC_7 TRP_2
 				  TWR_2 TRCD_2>;
-		st,sdram-refcount = <855>;
+		st,sdram-refcount = <761>;
 	};
 };
 &sdmmc1 {
